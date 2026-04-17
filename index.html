@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Password Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3450;
+      --text:      #e2e8f0;
+      --muted:     #8892b0;
+      --red:       #f87171;
+      --yellow:    #fbbf24;
+      --green:     #34d399;
+      --cyan:      #67e8f9;
+      --accent:    #6366f1;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.25rem;
+    }
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1.75rem;
+    }
+
+    /* ── Input ── */
+    .input-wrap {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .input-wrap input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      border-radius: 0.6rem;
+      padding: 0.75rem 3rem 0.75rem 1rem;
+      font-size: 1rem;
+      color: var(--text);
+      font-family: 'Courier New', monospace;
+      outline: none;
+      transition: border-color 0.2s;
+      letter-spacing: 0.05em;
+    }
+    .input-wrap input:focus { border-color: var(--accent); }
+    .input-wrap input::placeholder { letter-spacing: 0; font-family: inherit; color: var(--muted); }
+
+    .toggle-btn {
+      position: absolute;
+      right: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 1.1rem;
+      padding: 0.25rem;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .toggle-btn:hover { color: var(--text); }
+
+    /* ── Idle placeholder ── */
+    #placeholder {
+      text-align: center;
+      padding: 2rem 0 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    #placeholder .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+    /* ── Results ── */
+    #results { display: none; }
+
+    .strength-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.6rem;
+    }
+    .strength-label {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    .score-num {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* progress bar */
+    .bar-track {
+      height: 10px;
+      background: var(--surface2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }
+
+    /* stats grid */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      padding: 0.75rem 1rem;
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+    .stat-value {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    /* character variety */
+    .variety-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .chip {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid;
+      letter-spacing: 0.03em;
+    }
+    .chip.on  { border-color: var(--green); color: var(--green); background: rgba(52,211,153,0.08); }
+    .chip.off { border-color: var(--border); color: var(--muted); background: transparent; }
+
+    /* issues / suggestions */
+    .section-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+    .list-block { margin-bottom: 1.25rem; }
+    .list-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-icon { flex-shrink: 0; margin-top: 0.05rem; }
+
+    .all-good {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.88rem;
+      color: var(--green);
+      padding: 0.5rem 0;
+    }
+
+    /* copy button */
+    .copy-row {
+      margin-top: 0.5rem;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .copy-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.5rem 1.1rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .copy-btn:hover { opacity: 0.85; }
+
+    /* color helpers */
+    .c-red    { color: var(--red); }
+    .c-yellow { color: var(--yellow); }
+    .c-green  { color: var(--green); }
+    .c-cyan   { color: var(--cyan); }
+    .c-muted  { color: var(--muted); }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Password <span>Analyzer</span></h1>
+  <p class="subtitle">Real-time strength scoring · entropy · crack-time estimate</p>
+
+  <div class="input-wrap">
+    <input id="pw-input" type="password" placeholder="Type a password to analyze…" autocomplete="off" spellcheck="false" />
+    <button class="toggle-btn" id="toggle-vis" title="Show / hide password" aria-label="Toggle visibility">👁</button>
+  </div>
+
+  <div id="placeholder">
+    <div class="icon">🔐</div>
+    Start typing to see analysis
+  </div>
+
+  <div id="results">
+    <!-- strength bar -->
+    <div class="strength-header">
+      <span class="strength-label" id="strength-label">—</span>
+      <span class="score-num" id="score-num">0 / 95</span>
+    </div>
+    <div class="bar-track">
+      <div class="bar-fill" id="bar-fill" style="width:0%"></div>
+    </div>
+
+    <!-- stats grid -->
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-label">Entropy</div>
+        <div class="stat-value" id="stat-entropy">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Crack Time</div>
+        <div class="stat-value" id="stat-crack">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Length</div>
+        <div class="stat-value" id="stat-length">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Character Sets</div>
+        <div class="stat-value" id="stat-charset">—</div>
+      </div>
+    </div>
+
+    <!-- variety chips -->
+    <div class="variety-row" id="variety-row"></div>
+
+    <!-- issues -->
+    <div class="list-block" id="issues-block">
+      <div class="section-title">Issues</div>
+      <div id="issues-list"></div>
+    </div>
+
+    <!-- suggestions -->
+    <div class="list-block" id="suggestions-block">
+      <div class="section-title">Suggestions</div>
+      <div id="suggestions-list"></div>
+    </div>
+
+    <div class="copy-row">
+      <button class="copy-btn" id="copy-btn">Copy JSON Report</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// Scoring rules (mirrors rules.py exactly)
+// ─────────────────────────────────────────────
+
+const KEYBOARD_PATTERNS = [
+  "qwertyuiop","asdfghjkl","zxcvbnm",
+  "qwerty","asdf","zxcv","wasd",
+  "1234567890","0987654321",
+];
+
+const COMMON_WORDS = [
+  "pass","word","love","hate","test","user","admin","root",
+  "login","hello","welcome","dragon","master","monkey","shadow",
+  "sunshine","princess","football","baseball","soccer","hockey",
+  "batman","superman","michael","jessica","charlie","thomas",
+];
+
+const COMMON_PASSWORDS = new Set([
+  "123456","password","12345678","qwerty","123456789","12345","1234",
+  "111111","1234567","dragon","123123","baseball","iloveyou","master",
+  "monkey","letmein","login","princess","qwertyuiop","solo","passw0rd",
+  "starwars","abc123","654321","superman","welcome","shadow","michael",
+  "football","charlie","donald","password1","batman","admin","pass",
+  "sunshine","jessica","password123","696969","hunter","trustno1",
+  "ranger","test","hello","george","jordan","harley","robert","thomas",
+  "daniel","andrew","andrea","joshua","samuel","hannah","nicole",
+  "jennifer","ashley","amanda","melissa","linda","barbara","patricia",
+  "dorothy","elizabeth","sarah","karen","nancy","betty","helen",
+  "sandra","donna","carol","ruth","sharon","margaret","emily","justin",
+  "taylor","christian","zxcvbnm","asdfgh","qazwsx","123qwe","1q2w3e",
+  "abc","pass123","1234qwer","letmein1","password2","abc1234",
+  "monkey123","shadow1","dragon1","football1","baseball1","master123",
+]);
+
+function charsetSize(pw) {
+  let s = 0;
+  if (/[a-z]/.test(pw)) s += 26;
+  if (/[A-Z]/.test(pw)) s += 26;
+  if (/[0-9]/.test(pw)) s += 10;
+  if (/[^a-zA-Z0-9]/.test(pw)) s += 32;
+  return Math.max(s, 1);
+}
+
+function entropy(pw) {
+  if (!pw.length) return 0;
+  return Math.log2(charsetSize(pw)) * pw.length;
+}
+
+const LOG2_GPS = Math.log2(1e10);
+
+function crackTime(bits) {
+  if (bits <= 0) return "instantly";
+  const log2s = bits - LOG2_GPS;
+  if (log2s < 0) return "instantly";
+  if (log2s > 1020) return "practically forever";
+  const secs = Math.pow(2, log2s);
+  if (secs < 1)           return "instantly";
+  if (secs < 60)          return secs.toFixed(1) + " seconds";
+  if (secs < 3600)        return (secs/60).toFixed(1) + " minutes";
+  if (secs < 86400)       return (secs/3600).toFixed(1) + " hours";
+  if (secs < 86400*365)   return (secs/86400).toFixed(1) + " days";
+  if (secs < 86400*365*100)   return (secs/(86400*365)).toFixed(1) + " years";
+  if (secs < 86400*365*1e5)   return (secs/(86400*365*100)).toFixed(1) + " centuries";
+  return "practically forever";
+}
+
+function strengthLabel(score) {
+  if (score < 20) return "Very Weak";
+  if (score < 40) return "Weak";
+  if (score < 60) return "Fair";
+  if (score < 80) return "Strong";
+  return "Very Strong";
+}
+
+function analyze(pw) {
+  const issues = [], suggestions = [];
+  let score = 0;
+
+  // --- Length ---
+  const n = pw.length;
+  if (n === 0) {
+    issues.push("Password is empty");
+    suggestions.push("Enter a non-empty password");
+  } else if (n < 8) {
+    issues.push(`Too short (${n} chars, minimum 8)`);
+    suggestions.push("Use at least 8 characters; 16+ is recommended");
+  } else if (n >= 16) {
+    score += 25;
+  } else {
+    score += Math.floor((n - 8) / (16 - 8) * 25);
+    suggestions.push("Increase length to 16+ characters for maximum points");
+  }
+
+  // --- Variety ---
+  const hasLower  = /[a-z]/.test(pw);
+  const hasUpper  = /[A-Z]/.test(pw);
+  const hasDigit  = /[0-9]/.test(pw);
+  const hasSymbol = /[^a-zA-Z0-9]/.test(pw);
+
+  if (hasLower) score += 10; else { issues.push("No lowercase letters"); suggestions.push("Add lowercase letters (a–z)"); }
+  if (hasUpper) score += 10; else { issues.push("No uppercase letters"); suggestions.push("Add uppercase letters (A–Z)"); }
+  if (hasDigit) score += 10; else { issues.push("No digits"); suggestions.push("Add digits (0–9)"); }
+  if (hasSymbol) score += 10; else { issues.push("No symbols or special characters"); suggestions.push("Add symbols (!, @, #, $, …) or emoji"); }
+
+  // --- Entropy bonus ---
+  const bits = entropy(pw);
+  score += Math.min(20, Math.floor(bits / 80 * 20));
+
+  // --- Bonus: no repeated sequences ---
+  if (n >= 3) {
+    if (/(.)\1{2,}/.test(pw)) {
+      issues.push("Contains repeated characters (e.g. 'aaa')");
+      suggestions.push("Avoid repeating the same character 3+ times in a row");
+    } else {
+      score += 5;
+    }
+  }
+
+  // --- Bonus: no keyboard patterns ---
+  if (n >= 4) {
+    const lower = pw.toLowerCase();
+    let found = null;
+    outer: for (const pat of KEYBOARD_PATTERNS) {
+      for (let len = 4; len <= pat.length; len++) {
+        for (let s = 0; s <= pat.length - len; s++) {
+          const chunk = pat.slice(s, s + len);
+          if (lower.includes(chunk)) { found = chunk; break outer; }
+        }
+      }
+    }
+    if (found) {
+      issues.push(`Contains keyboard pattern '${found}'`);
+      suggestions.push("Avoid keyboard sequences like 'qwerty' or '1234'");
+    } else {
+      score += 5;
+    }
+  }
+
+  // --- Penalty: common password ---
+  if (COMMON_PASSWORDS.has(pw.toLowerCase())) {
+    score -= 20;
+    issues.push("Password is in the common passwords list");
+    suggestions.push("Choose a unique password not found in breach databases");
+  }
+
+  // --- Penalty: dictionary word ---
+  const lower = pw.toLowerCase();
+  for (const word of COMMON_WORDS) {
+    if (word.length >= 4 && lower.includes(word)) {
+      score -= 10;
+      issues.push(`Contains common word '${word}'`);
+      suggestions.push("Avoid common dictionary words embedded in your password");
+      break;
+    }
+  }
+
+  // --- Penalty: sequential chars ---
+  let seqFound = null;
+  for (let i = 0; i <= lower.length - 4; i++) {
+    const chunk = lower.slice(i, i + 4);
+    const asc  = [0,1,2].every(j => chunk.charCodeAt(j+1) - chunk.charCodeAt(j) === 1);
+    const desc = [0,1,2].every(j => chunk.charCodeAt(j) - chunk.charCodeAt(j+1) === 1);
+    if (asc || desc) { seqFound = chunk; break; }
+  }
+  if (seqFound) {
+    score -= 10;
+    issues.push(`Contains sequential characters '${seqFound}'`);
+    suggestions.push("Avoid sequential runs like 'abcd' or '1234'");
+  }
+
+  score = Math.max(0, Math.min(100, score));
+
+  return {
+    score,
+    strengthLabel: strengthLabel(score),
+    entropyBits: bits,
+    crackTime: crackTime(bits),
+    issues,
+    suggestions,
+    hasLower, hasUpper, hasDigit, hasSymbol,
+    length: n,
+    charsets: [hasLower, hasUpper, hasDigit, hasSymbol].filter(Boolean).length,
+  };
+}
+
+// ─────────────────────────────────────────────
+// UI helpers
+// ─────────────────────────────────────────────
+
+function scoreColor(score) {
+  if (score < 40) return "var(--red)";
+  if (score < 60) return "var(--yellow)";
+  return "var(--green)";
+}
+
+function scoreTextClass(score) {
+  if (score < 40) return "c-red";
+  if (score < 60) return "c-yellow";
+  return "c-green";
+}
+
+let lastResult = null;
+
+function render(pw) {
+  const placeholder = document.getElementById("placeholder");
+  const results     = document.getElementById("results");
+
+  if (!pw) {
+    placeholder.style.display = "block";
+    results.style.display = "none";
+    lastResult = null;
+    return;
+  }
+
+  placeholder.style.display = "none";
+  results.style.display = "block";
+
+  const r = analyze(pw);
+  lastResult = { password_length: pw.length, ...r };
+
+  // bar
+  const pct = Math.round(r.score / 95 * 100);
+  document.getElementById("bar-fill").style.width  = pct + "%";
+  document.getElementById("bar-fill").style.background = scoreColor(r.score);
+
+  // header
+  const lbl = document.getElementById("strength-label");
+  lbl.textContent = r.strengthLabel;
+  lbl.className = "strength-label " + scoreTextClass(r.score);
+  document.getElementById("score-num").textContent = `${r.score} / 95`;
+
+  // stats
+  document.getElementById("stat-entropy").textContent = r.entropyBits.toFixed(1) + " bits";
+  document.getElementById("stat-crack").textContent   = r.crackTime;
+  document.getElementById("stat-length").textContent  = r.length + " chars";
+  document.getElementById("stat-charset").textContent = r.charsets + " / 4";
+
+  // variety chips
+  const chips = [
+    ["a–z", r.hasLower],
+    ["A–Z", r.hasUpper],
+    ["0–9", r.hasDigit],
+    ["Symbols", r.hasSymbol],
+  ];
+  document.getElementById("variety-row").innerHTML = chips.map(
+    ([label, on]) => `<span class="chip ${on ? "on" : "off"}">${on ? "✓" : "✗"} ${label}</span>`
+  ).join("");
+
+  // issues
+  const issuesList = document.getElementById("issues-list");
+  if (r.issues.length === 0) {
+    issuesList.innerHTML = `<div class="all-good"><span>✓</span> No issues found</div>`;
+  } else {
+    issuesList.innerHTML = r.issues.map(
+      i => `<div class="list-item"><span class="list-icon c-red">✗</span><span>${i}</span></div>`
+    ).join("");
+  }
+
+  // suggestions
+  const suggList = document.getElementById("suggestions-list");
+  if (r.suggestions.length === 0) {
+    suggList.innerHTML = `<div class="all-good"><span>✓</span> Looking great!</div>`;
+  } else {
+    suggList.innerHTML = r.suggestions.map(
+      s => `<div class="list-item"><span class="list-icon c-cyan">→</span><span>${s}</span></div>`
+    ).join("");
+  }
+}
+
+// ─────────────────────────────────────────────
+// Events
+// ─────────────────────────────────────────────
+
+const input = document.getElementById("pw-input");
+
+input.addEventListener("input", () => render(input.value));
+
+document.getElementById("toggle-vis").addEventListener("click", () => {
+  input.type = input.type === "password" ? "text" : "password";
+});
+
+document.getElementById("copy-btn").addEventListener("click", () => {
+  if (!lastResult) return;
+  const btn = document.getElementById("copy-btn");
+  navigator.clipboard.writeText(JSON.stringify(lastResult, null, 2)).then(() => {
+    btn.textContent = "Copied!";
+    setTimeout(() => btn.textContent = "Copy JSON Report", 1500);
+  });
+});
+</script>
+</body>
+</html>
